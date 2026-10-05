@@ -1,0 +1,41 @@
+name: Build Windows 7 APK
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Extract project
+        run: |
+          unzip -q NOVA-WebView-GitHub.zip -d project
+
+      - name: Find Gradle project
+        run: |
+          echo "Searching for gradlew..."
+          find project -name gradlew -type f
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build APK
+        run: |
+          PROJECT=$(find project -name gradlew -type f -print -quit | xargs dirname)
+          chmod +x "$PROJECT/gradlew"
+          cd "$PROJECT"
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows7-APK
+          path: project/**/app/build/outputs/apk/**/*.apk
