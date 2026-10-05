@@ -12,14 +12,26 @@ jobs:
       - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Extract project
+      - name: Extract Android project
         run: |
+          rm -rf project
+          mkdir project
           unzip -q NOVA-WebView-GitHub.zip -d project
 
-      - name: Find Gradle project
+          echo "=== ZIP CONTENT ==="
+          find project -maxdepth 5 -type f | head -200
+
+      - name: Find Android project
         run: |
-          echo "Searching for gradlew..."
-          find project -name gradlew -type f
+          PROJECT=$(find project -name build.gradle -o -name build.gradle.kts | head -1 | xargs dirname)
+
+          if [ -z "$PROJECT" ]; then
+            echo "Android Gradle projesi bulunamadı!"
+            exit 1
+          fi
+
+          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,15 +39,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Build APK
         run: |
-          PROJECT=$(find project -name gradlew -type f -print -quit | xargs dirname)
-          chmod +x "$PROJECT/gradlew"
           cd "$PROJECT"
-          ./gradlew assembleDebug --no-daemon
+
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+          else
+            gradle assembleDebug --no-daemon
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Windows7-APK
-          path: project/**/app/build/outputs/apk/**/*.apk
+          path: |
+            project/**/build/outputs/apk/**/*.apk
